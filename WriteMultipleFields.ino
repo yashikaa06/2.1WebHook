@@ -29,121 +29,75 @@
 #define DHTPIN 2
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE); 
-#include "ThingSpeak.h"// always include thingspeak header file after other header files and custom macros
+#include "ThingSpeak.h" // Always include ThingSpeak header file after other header files and custom macros
 
-char ssid[] = SECRET_SSID;   // your network SSID (name) 
-char pass[] = SECRET_PASS;   // your network password
-int keyIndex = 0;            // your network key Index number (needed only for WEP)
-WiFiClient  client;
+char ssid[] = SECRET_SSID;   // Your network SSID (name)
+char pass[] = SECRET_PASS;   // Your network password
+WiFiClient client;
 
 unsigned long myChannelNumber = SECRET_CH_ID;
-const char * myWriteAPIKey = SECRET_WRITE_APIKEY;
-
-// Initialize our values
-int number1 = 0;
-int number2 = random(0,100);
-int number3 = random(0,100);
-int number4 = random(0,100);
-String myStatus = "";
+const char *myWriteAPIKey = SECRET_WRITE_APIKEY;
 
 void setup() {
-  Serial.begin(115200);      // Initialize serial 
+  Serial.begin(115200);  // Initialize serial 
   while (!Serial) {
-    ; // wait for serial port to connect. Needed for Leonardo native USB port only
+    ; // Wait for serial port to connect. Needed for Leonardo native USB port only
   }
-  
-  ThingSpeak.begin(client);  // Initialize ThingSpeak 
 
-  Serial.begin(9600);
+  ThingSpeak.begin(client);  // Initialize ThingSpeak
   Serial.println(F("DHTxx test!"));
-
   dht.begin();
 }
 
 void loop() {
-
   // Connect or reconnect to WiFi
-  if(WiFi.status() != WL_CONNECTED){
+  if (WiFi.status() != WL_CONNECTED) {
     Serial.print("Attempting to connect to SSID: ");
-    Serial.println(SECRET_SSID);
-    while(WiFi.status() != WL_CONNECTED){
-      WiFi.begin(ssid, pass);  // Connect to WPA/WPA2 network. Change this line if using open or WEP network
+    Serial.println(ssid);
+    while (WiFi.status() != WL_CONNECTED) {
+      WiFi.begin(ssid, pass);  // Connect to WPA/WPA2 network
       Serial.print(".");
-      delay(5000);     
-    } 
+      delay(5000);
+    }
     Serial.println("\nConnected.");
   }
 
-  // set the fields with the values
-  ThingSpeak.setField(1, number1);
-  ThingSpeak.setField(2, number2);
-  ThingSpeak.setField(3, number3);
-  ThingSpeak.setField(4, number4);
+  // Read temperature and humidity
+  float humidity = dht.readHumidity();
+  float temperatureC = dht.readTemperature();
+  float temperatureF = dht.readTemperature(true);
 
-  // figure out the status message
-  if(number1 > number2){
-    myStatus = String("field1 is greater than field2"); 
-  }
-  else if(number1 < number2){
-    myStatus = String("field1 is less than field2");
-  }
-  else{
-    myStatus = String("field1 equals field2");
-  }
-  
-  // set the status
-  ThingSpeak.setStatus(myStatus);
-  
-  // write to the ThingSpeak channel 
-  int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
-  if(x == 200){
-    Serial.println("Channel update successful.");
-  }
-  else{
-    Serial.println("Problem updating channel. HTTP error code " + String(x));
-  }
-  
-  // change the values
-  number1++;
-  if(number1 > 99){
-    number1 = 0;
-  }
-  number2 = random(0,100);
-  number3 = random(0,100);
-  number4 = random(0,100);
-  
-  delay(20000); // Wait 20 seconds to update the channel again
-
-   delay(2000);
-
-  // Reading temperature or humidity takes about 250 milliseconds!
-  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-  float h = dht.readHumidity();
-  // Read temperature as Celsius (the default)
-  float t = dht.readTemperature();
-  // Read temperature as Fahrenheit (isFahrenheit = true)
-  float f = dht.readTemperature(true);
-
-  // Check if any reads failed and exit early (to try again).
-  if (isnan(h) || isnan(t) || isnan(f)) {
+  // Check if any reads failed
+  if (isnan(humidity) || isnan(temperatureC) || isnan(temperatureF)) {
     Serial.println(F("Failed to read from DHT sensor!"));
     return;
   }
 
-  // Compute heat index in Fahrenheit (the default)
-  float hif = dht.computeHeatIndex(f, h);
-  // Compute heat index in Celsius (isFahreheit = false)
-  float hic = dht.computeHeatIndex(t, h, false);
-
+  // Print temperature and humidity
   Serial.print(F("Humidity: "));
-  Serial.print(h);
+  Serial.print(humidity);
   Serial.print(F("%  Temperature: "));
-  Serial.print(t);
+  Serial.print(temperatureC);
   Serial.print(F("°C "));
-  Serial.print(f);
-  Serial.print(F("°F  Heat index: "));
-  Serial.print(hic);
-  Serial.print(F("°C "));
-  Serial.print(hif);
+  Serial.print(temperatureF);
   Serial.println(F("°F"));
+
+  // Set fields with the sensor values
+  ThingSpeak.setField(1, temperatureC);
+  ThingSpeak.setField(2, temperatureF);
+  ThingSpeak.setField(3, humidity);
+
+  // Set a status message
+  String myStatus = "Temperature and humidity readings updated";
+  ThingSpeak.setStatus(myStatus);
+
+  // Write to the ThingSpeak channel
+  int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+  if (x == 200) {
+    Serial.println("Channel update successful.");
+  } else {
+    Serial.println("Problem updating channel. HTTP error code " + String(x));
+  }
+
+  delay(20000); // Wait 20 seconds to update the channel again
 }
